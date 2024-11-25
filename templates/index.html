@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora Léxica</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css">
+    <style>
+        body {
+            text-align: center;
+            margin-top: 50px;
+        }
+        #result {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        button {
+            margin: 5px;
+            width: 60px;
+            height: 40px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Calculadora Léxica</h1>
+    <div id="result">0</div>
+    <div id="expression">Expresión: </div>
+    <div>
+        <button onclick="sendAction('1')">1</button>
+        <button onclick="sendAction('2')">2</button>
+        <button onclick="sendAction('3')">3</button>
+        <button onclick="sendAction('+')">+</button>
+    </div>
+    <div>
+        <button onclick="sendAction('4')">4</button>
+        <button onclick="sendAction('5')">5</button>
+        <button onclick="sendAction('6')">6</button>
+        <button onclick="sendAction('-')">-</button>
+    </div>
+    <div>
+        <button onclick="sendAction('7')">7</button>
+        <button onclick="sendAction('8')">8</button>
+        <button onclick="sendAction('9')">9</button>
+        <button onclick="sendAction('*')">*</button>
+    </div>
+    <div>
+        <button onclick="sendAction('0')">0</button>
+        <button onclick="sendAction('/')">/</button>
+        <button onclick="sendAction('limpiar')">C</button>
+        <button onclick="sendAction('borrar')">⌫</button>
+    </div>
+    <div>
+        <button onclick="sendAction('MS')">MS</button>
+    </div>
+</body>
+<script src="/static/script.js"></script>
+</html>
