@@ -24,16 +24,12 @@ grammar = """
 parser_lark = Lark(grammar)
 
 def lark_tree_to_d3(tree):
-    """
-    Convierte un árbol de Lark a un formato compatible con D3.js.
-    """
     if isinstance(tree, Tree):
         return {
             "name": tree.data,
             "children": [lark_tree_to_d3(child) for child in tree.children]
         }
     else:
-        # Nodo hoja (un token)
         return {"name": str(tree)}
 
 
@@ -50,34 +46,27 @@ t_LPAREN = r'\('
 t_RPAREN = r'\)'
 t_ignore = ' \t'
 
-
 def t_NUMBER(t):
     r'\d+\.\d*|\d+'
     t.value = float(t.value) if '.' in t.value else int(t.value)  
     return t
 
-
-
-
 def t_error(t):
     t.lexer.skip(1)
-
 
 lexer = lex.lex()
 
 precedence = (
     ('left', 'PLUS', 'MINUS'),
     ('left', 'MULTIPLY', 'DIVIDE'),
-    ('nonassoc', 'UMINUS'),
+    ('nonassoc', 'UMINUS'),  # Negación unaria tiene precedencia más alta
 )
-
 
 class Node:
     def __init__(self, value, left=None, right=None):
         self.value = value
         self.left = left
         self.right = right
-
 
 def p_expression_binop(p):
     '''expression : expression PLUS expression
@@ -86,21 +75,17 @@ def p_expression_binop(p):
                   | expression DIVIDE expression'''
     p[0] = Node(p[2], p[1], p[3])
 
-
 def p_expression_number(p):
     'expression : NUMBER'
     p[0] = Node(p[1])
-
 
 def p_expression_parens(p):
     'expression : LPAREN expression RPAREN'
     p[0] = p[2]
 
-
 def p_expression_uminus(p):
     'expression : MINUS expression %prec UMINUS'
     p[0] = Node('-', None, p[2])
-
 
 def p_error(p):
     pass
@@ -129,32 +114,28 @@ def classify_expression(expression):
             classifications.append(f"'{char}': Desconocido")
     return classifications
 
-
-
 parser = yacc.yacc()
 
- 
 memory_store = None
 input_buffer = ""
 
 def evaluate(node):
-    if isinstance(node.value, (int, float)):  
+    if isinstance(node.value, (int, float)):
         return node.value
     elif node.value == '+':
         return evaluate(node.left) + evaluate(node.right)
     elif node.value == '-':
+        if node.left is None:  
+            return -evaluate(node.right)
         return evaluate(node.left) - evaluate(node.right)
     elif node.value == '*':
         return evaluate(node.left) * evaluate(node.right)
     elif node.value == '/':
         return evaluate(node.left) / evaluate(node.right)
 
-
-
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 @app.route('/process', methods=['POST'])
 def process():
@@ -192,10 +173,6 @@ def process():
         }
 
     return jsonify(response)
-
-
-
-
 
 if __name__ == '__main__':
     app.run(debug=True)
