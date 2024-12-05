@@ -1,6 +1,41 @@
 from flask import Flask, request, jsonify, render_template
 import ply.lex as lex
 import ply.yacc as yacc
+from lark import Lark, Tree
+
+grammar = """
+    ?start: sum
+          | NAME -> memory
+    ?sum: product
+        | sum "+" product   -> add
+        | sum "-" product   -> sub
+    ?product: atom
+            | product "*" atom  -> mul
+            | product "/" atom  -> div
+    ?atom: NUMBER           -> number
+         | "-" atom         -> neg
+         | "(" sum ")"
+    %import common.CNAME -> NAME
+    %import common.NUMBER
+    %import common.WS
+    %ignore WS
+"""
+
+parser_lark = Lark(grammar)
+
+def lark_tree_to_d3(tree):
+    """
+    Convierte un árbol de Lark a un formato compatible con D3.js.
+    """
+    if isinstance(tree, Tree):
+        return {
+            "name": tree.data,
+            "children": [lark_tree_to_d3(child) for child in tree.children]
+        }
+    else:
+        # Nodo hoja (un token)
+        return {"name": str(tree)}
+
 
 app = Flask(__name__)
 
@@ -17,9 +52,11 @@ t_ignore = ' \t'
 
 
 def t_NUMBER(t):
-    r'\d+'
-    t.value = int(t.value)
+    r'\d+\.\d*|\d+'
+    t.value = float(t.value) if '.' in t.value else int(t.value)  
     return t
+
+
 
 
 def t_error(t):
@@ -68,6 +105,31 @@ def p_expression_uminus(p):
 def p_error(p):
     pass
 
+def categorize_token(token):
+    if token.isdigit() or ('.' in token and token.replace('.', '', 1).isdigit()):
+        return "Número Decimal" if '.' in token else "Número Entero"
+    elif token in {'+', '-', '*', '/'}:
+        return "Operador"
+    elif token in {'(', ')'}:
+        return "Paréntesis"
+    return "Desconocido"
+
+def classify_expression(expression):
+    classifications = []
+    for char in expression:
+        if char.isdigit():
+            classifications.append(f"'{char}': Entero")
+        elif char == '.':
+            classifications.append(f"'{char}': Decimal")
+        elif char in '+-*/()':
+            classifications.append(f"'{char}': Operador")
+        elif char == 'M':
+            classifications.append(f"'{char}': MS")
+        else:
+            classifications.append(f"'{char}': Desconocido")
+    return classifications
+
+
 
 parser = yacc.yacc()
 
@@ -76,7 +138,7 @@ memory_store = None
 input_buffer = ""
 
 def evaluate(node):
-    if isinstance(node.value, int):
+    if isinstance(node.value, (int, float)):  
         return node.value
     elif node.value == '+':
         return evaluate(node.left) + evaluate(node.right)
@@ -86,6 +148,7 @@ def evaluate(node):
         return evaluate(node.left) * evaluate(node.right)
     elif node.value == '/':
         return evaluate(node.left) / evaluate(node.right)
+
 
 
 @app.route('/')
@@ -98,47 +161,34 @@ def process():
     global input_buffer, memory_store
     data = request.json
     action = data.get("action", "")
-    try:
-        if action == "borrar":
-            if input_buffer:
-                input_buffer = input_buffer[:-1]
-        elif action == "limpiar":
-            input_buffer = ""
-            memory_store = None
-        elif action == "MS":
-            if memory_store is not None:
-                input_buffer += str(memory_store)
-            else:
-                return jsonify({
-                    "expression": input_buffer,
-                    "result": "No hay valor en memoria"
-                })
-        else:
-            input_buffer += action
+    expression = data.get("expression", "")
 
-        if input_buffer:
-            result = parser.parse(input_buffer)
-            if result:
-                memory_store = evaluate(result)
-                response = {
-                    "expression": input_buffer,
-                    "result": memory_store,
-                }
-            else:
-                response = {
-                    "expression": input_buffer,
-                    "result": None,
-                }
+    try:
+        if action == "=" and expression:
+            tree = parser_lark.parse(expression)
+            result = evaluate(parser.parse(expression))
+            memory_store = result
+
+            response = {
+                "expression": expression,
+                "result": result,
+                "classifications": classify_expression(expression),
+                "tree": lark_tree_to_d3(tree), 
+            }
         else:
             response = {
                 "expression": "",
                 "result": None,
+                "classifications": [],
+                "tree": None,
             }
     except Exception as e:
         response = {
-            "expression": input_buffer,
+            "expression": expression if expression else input_buffer,
             "result": "Error",
             "error": str(e),
+            "classifications": [],
+            "tree": None,
         }
 
     return jsonify(response)
